@@ -25,7 +25,7 @@ typedef NS_ENUM(NSInteger, WTFunctionCodes)
 - (instancetype) init {
     self = [super init];
     if (self) {
-        
+        [[WTSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] didFinishLaunchingWithOptions:nil];
     }
     return self;
 }
