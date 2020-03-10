@@ -25,13 +25,8 @@
    <key>NSMicrophoneUsageDescription</key>
    <string>To record live photos and movies</string>
    ```
-3. Add below line in application:didFinishLaunchingWithOptions: method of your AppDelegate.m
-```
-//#import <WTExternalSDK/WTExternalSDK.h>
-[[WTSDKApplicationDelegate sharedInstance] application:application didFinishLaunchingWithOptions:launchOptions];
-```
-4. `$ cd ios && pod install && cd ..`
-5. `$ react-native run-ios`
+3. `$ cd ios && pod install && cd ..`
+4. `$ react-native run-ios`
 
 ## To strip simulator architecture framework for your app submission
 1. Copy **trim.sh** file into your project folder.
