@@ -64,7 +64,7 @@ const WannatalkCoreEmitter = new NativeEventEmitter(WannatalkCore)
 
 ## To link Wannatalk account
 ```javascript
-WannatalkCore.silentLogin("<user_identifier>", { key1: "Value1", key2: "Value2"});
+WannatalkCore.silentLogin("<user_identifier>", { displayname: "name", key1: "Value1", key2: "Value2"});
 ```
 
 ### Login events
