@@ -64,7 +64,8 @@ const WannatalkCoreEmitter = new NativeEventEmitter(WannatalkCore)
 
 ## To link Wannatalk account
 ```javascript
-WannatalkCore.silentLogin("<user_identifier>", { displayname: "name", key1: "Value1", key2: "Value2"});
+WannatalkCore.silentLogin("<user_identifier>", { displayname: "name", key1: "Value1", key2: "Value2"}, (success, error) => {
+});
 ```
 
 ### Login events
@@ -84,24 +85,28 @@ WannatalkCore.isUserLoggedIn((userLoggedIn) => {
 
 ## To unlink Wannatalk account
 ```javascript
-WannatalkCore.logout();
+WannatalkCore.logout((success, error) => {
+});
 ```
     
 ## HelpDesk
 ### To load your organization profile
 ```javascript
-WannatalkCore.loadOrganizationProfile(true);
+WannatalkCore.loadOrganizationProfile(true, (success, error) => {
+});
 ```
 
 ## Collaboration
 ### To view all chats
 ```javascript
-WannatalkCore.loadChatList();
+WannatalkCore.loadChatList(, (success, error) => {
+});
 ```
     
 ### To view all users
 ```javascript
-WannatalkCore.loadUsers();
+WannatalkCore.loadUsers(, (success, error) => {
+});
 ```
 
 ## Other

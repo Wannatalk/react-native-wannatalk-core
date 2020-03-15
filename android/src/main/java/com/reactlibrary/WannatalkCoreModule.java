@@ -4,6 +4,7 @@ import android.app.Application;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,10 +31,14 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Callback;
 
+import android.util.Log;
+
 import wannatalk.wannatalksdk.WTCore.Interface.IWTLoginManager;
+import wannatalk.wannatalksdk.WTCore.Interface.IWTCompletion;
 import wannatalk.wannatalksdk.WTCore.WTSDKManager;
 import wannatalk.wannatalksdk.WTCore.WTSDKConstants;
 import wannatalk.wannatalksdk.WTLogin.WTLoginManager;
+
 
 import android.os.Handler;
 import android.os.Looper;
@@ -108,17 +113,20 @@ public class WannatalkCoreModule extends ReactContextBaseJavaModule {
         callback.invoke(WTLoginManager.IsUserLoggedIn());
     }
 
-    @ReactMethod
-    void login() {
+    Callback loginCallback;
+    Callback logoutCallback;
 
+    @ReactMethod
+    void login(Callback callback) {
+        loginCallback = callback;
         Activity currentActivity = getCurrentActivity();
         WTLoginManager.StartLoginActivity(currentActivity);
 
     }
 
     @ReactMethod
-    void silentLogin(final String identifier, final ReadableMap params) {
-
+    void silentLogin(final String identifier, final ReadableMap params, Callback callback) {
+        loginCallback = callback;
         Activity currentActivity = getCurrentActivity();
         // Silent authentication without otp verification
 
@@ -137,31 +145,62 @@ public class WannatalkCoreModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    void logout() {
-
+    void logout(Callback callback) {
+        logoutCallback = callback;
         Activity currentActivity = getCurrentActivity();
         WTLoginManager.Logout(currentActivity);
     }
 
+    // Callback orgProfileCallback;
+    // Callback chatListCallback;
+    // Callback userListCallback;
+
     @ReactMethod
-    void loadOrganizationProfile(Boolean autoOpenChat) {
+    void loadOrganizationProfile(Boolean autoOpenChat, final Callback callback) {
+
         // Load organization profile
         Activity currentActivity = getCurrentActivity();
-        WTSDKManager.LoadOrganizationActivity(currentActivity, autoOpenChat);
+        // WTSDKManager.LoadOrganizationActivity(currentActivity, autoOpenChat);
+        WTSDKManager.LoadOrganizationActivity(currentActivity, true, new IWTCompletion() {
+            @Override
+            public void onCompletion(boolean success, String error) {
+                // Log.e(TAG, "success: " + success + " error: " + error);
+
+                if (callback != null) {
+                    callback.invoke(success, error);
+                }
+            }
+        });
     }
 
     @ReactMethod
-    void loadChatList() {
+    void loadChatList(final Callback callback) {
         // Load chat list
         Activity currentActivity = getCurrentActivity();
-        WTSDKManager.LoadChatListActivity(currentActivity);
+        // WTSDKManager.LoadChatListActivity(currentActivity);
+        WTSDKManager.LoadChatListActivity(currentActivity, new IWTCompletion() {
+            @Override
+            public void onCompletion(boolean success, String error) {
+                if (callback != null) {
+                    callback.invoke(success, error);
+                }
+            }
+        });
     }
 
     @ReactMethod
-    void loadUsers() {
+    void loadUsers(final Callback callback) {
         // Load users
         Activity currentActivity = getCurrentActivity();
-        WTSDKManager.LoadUsersActivity(currentActivity);
+        // WTSDKManager.LoadUsersActivity(currentActivity);
+        WTSDKManager.LoadUsersActivity(currentActivity, new IWTCompletion() {
+            @Override
+            public void onCompletion(boolean success, String error) {
+                if (callback != null) {
+                    callback.invoke(success, error);
+                }
+            }
+        });
     }
 
     // @ReactMethod
@@ -245,6 +284,33 @@ public class WannatalkCoreModule extends ReactContextBaseJavaModule {
         WTSDKManager.SetInactiveChatTimeoutInterval(timeoutInSeconds);
     }
 
+
+
+    @ReactMethod
+    public static void updateUserImage(String localImagePath, final Callback callback) {
+        WTLoginManager.UploadUserImageAtPath(localImagePath, new IWTCompletion() {
+            @Override
+            public void onCompletion(boolean success, String error) {
+                callback.invoke(success, error);
+            }
+        });
+    }
+
+
+    @ReactMethod
+    public static void updateUserName(String userName, final Callback callback) {
+        WTLoginManager.UpdateUserProfileName(userName, new IWTCompletion() {
+            @Override
+            public void onCompletion(boolean success, String error) {
+                callback.invoke(success, error);
+            }
+        });
+
+    }
+
+
+
+
     private void sendErrorEvent(int errorCode, String message) {
         WritableMap params = Arguments.createMap();
             params.putInt("code", errorCode);
@@ -264,17 +330,42 @@ public class WannatalkCoreModule extends ReactContextBaseJavaModule {
             reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("login-event", params);
     }
 
+private void sendLoginCallback(String error) {
+    if (loginCallback != null) {
+        loginCallback.invoke(error == null, error);
+    }
+    loginCallback = null;
+}
+
+private void sendLogoutCallback(String error) {
+    if (logoutCallback != null) {
+        logoutCallback.invoke(error == null, error);
+    }
+    logoutCallback = null;
+}
 
     IWTLoginManager iwtLoginManager = new IWTLoginManager() {
+
+        @Override
+        public void wtsdkUserLoggedIn() {
+            sendLoginCallback(null);
+            sendLoginEvent(true);
+        }
+
+        @Override
+        public void wtsdkUserLoginFailed(String error) {
+            sendLoginCallback(error);
+        }
+
         @Override
         public void wtsdkUserLoggedOut() {
-
+            sendLogoutCallback(null);
             sendLoginEvent(false);
         }
 
         @Override
-        public void wtsdkUserLoggedIn() {
-            sendLoginEvent(true);
+        public void wtsdkUserLogoutFailed(String error) {
+            sendLogoutCallback(error);
         }
 
     };

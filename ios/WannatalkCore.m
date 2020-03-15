@@ -3,37 +3,87 @@
 #import <React/RCTLog.h>
 #import <React/RCTConvert.h>
 
+#import "WannatalkSDKManger.h"
+
 @interface WannatalkCore() <WTLoginManagerDelegate, WTSDKManagerDelegate> {
     BOOL _hasListeners;
 }
+
+@property (nonatomic, strong) RCTResponseSenderBlock loginSenderBlock;
+@property (nonatomic, strong) RCTResponseSenderBlock logoutSenderBlock;
+
+@property (nonatomic, strong) RCTResponseSenderBlock orgProfileSenderBlock;
+@property (nonatomic, strong) RCTResponseSenderBlock chatListSenderBlock;
+@property (nonatomic, strong) RCTResponseSenderBlock userListSenderBlock;
 
 @end
 
 @implementation WannatalkCore
 
-typedef NS_ENUM(NSInteger, WTFunctionCodes)
-{
-    WTFCLogin = 1,
-    WTFCSilentLogin,
-    WTFCLogout,
-    WTFCLoadOrganizationProfile,
-    WTFCLoadChatList,
-    WTFCLoadUsers
-};
 
 
 - (instancetype) init {
     self = [super init];
     if (self) {
         [[WTSDKApplicationDelegate sharedInstance] application:[UIApplication sharedApplication] didFinishLaunchingWithOptions:nil];
+        [WTLoginManager sharedInstance].delegate = self;
+        [WTSDKManager sharedInstance].delegate = self;
     }
     return self;
 }
 
+
+#define EVENT_LOGIN @"login-event"
+#define EVENT_ERROR @"error-event"
+#define EVENT_WANNATALK @"wannatalk-event"
+
+//#define EVENT_ORG_PROFILE @"org-event"
+//#define EVENT_CHAT_LIST @"chat-list-event"
+//#define EVENT_USERS_LIST @"user-list-event"
+
+typedef NS_ENUM(NSInteger, WTEventTypes)
+{
+    kEventTypeLogin = 1011,
+    kEventTypeSilentLogin,
+    kEventTypeLogout,
+    kEventTypeOrgProfile,
+    kEventTypeChatList,
+    kEventTypeUsers
+};
+
+
 - (NSArray<NSString *> *)supportedEvents
 {
-    return @[@"error-event", @"login-event"];
+    return @[
+        EVENT_ERROR,
+        EVENT_LOGIN,
+//        EVENT_WANNATALK,
+//        EVENT_ORG_PROFILE,
+//        EVENT_CHAT_LIST,
+//        EVENT_USERS_LIST
+    ];
 }
+
+//- (NSDictionary *)constantsToExport
+//{
+//    return @{
+//        @"kEVENT_ERROR": EVENT_ERROR,
+//        @"kEVENT_LOGIN": EVENT_LOGIN,
+//        //        @"kEVENT_WANNATALK": EVENT_WANNATALK,
+////        @"kEVENT_ORG_PROFILE": EVENT_ORG_PROFILE,
+////        @"kEVENT_CHAT_LIST": EVENT_CHAT_LIST,
+////        @"kEVENT_USERS_LIST": EVENT_USERS_LIST
+//
+//        //        @"kEventTypeLogin": @(kEventTypeLogin),
+//        //        @"kEventTypeSilentLogin": @(kEventTypeSilentLogin),
+//        //        @"kEventTypeLogout": @(kEventTypeLogout),
+//        //        @"kEventTypeOrgProfile": @(kEventTypeOrgProfile),
+//        //        @"kEventTypeChatList": @(kEventTypeChatList),
+//        //        @"kEventTypeUsers": @(kEventTypeUsers)
+//    };
+//
+//
+//}
 
 // Will be called when this module's first listener is added.
 - (void)startObserving
@@ -57,6 +107,9 @@ typedef NS_ENUM(NSInteger, WTFunctionCodes)
     return dispatch_get_main_queue();
 }
 
+
+#pragma mark -
+
 RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(isUserLoggedIn:(RCTResponseSenderBlock)callback) {
@@ -64,8 +117,8 @@ RCT_EXPORT_METHOD(isUserLoggedIn:(RCTResponseSenderBlock)callback) {
     callback(@[@([WTLoginManager sharedInstance].isUserLoggedIn)]);
 }
 
-RCT_EXPORT_METHOD(logout) {
-    
+RCT_EXPORT_METHOD(logout:(RCTResponseSenderBlock)callback) {
+    self.logoutSenderBlock = callback;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
             
@@ -74,7 +127,9 @@ RCT_EXPORT_METHOD(logout) {
                 [[WTLoginManager sharedInstance] logout];
                 
             } @catch (NSException *e) {
-                [self sendErrorEvent:WTFCLogout withMessage:[e description]];
+                [self sendLogoutCallback:@"Error occured"];
+                NSLog(@"Error: %@", [e description]);
+                [self sendErrorEvent:kEventTypeLogout withMessage:[e description]];
                 
             }
         });
@@ -84,26 +139,22 @@ RCT_EXPORT_METHOD(logout) {
     
 }
 
-
-
-RCT_EXPORT_METHOD(silentLogin:(NSString *) identifier userInfo:(NSDictionary *) userInfo)  {
-    
+RCT_EXPORT_METHOD(silentLogin:(NSString *) identifier userInfo:(NSDictionary *) userInfo callback:(RCTResponseSenderBlock)callback) {
+    self.loginSenderBlock = callback;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
-            
             // Get view controller on which to present the flow
             UIWindow *window = [[UIApplication sharedApplication] keyWindow];
             UIViewController *_rootViewController = (UIViewController *)window.rootViewController;
             
             @try {
-                
-                [WTLoginManager sharedInstance].delegate = self;
                 
                 [[WTLoginManager sharedInstance] silentLoginWithIdentifier:identifier userInfo:userInfo fromVC:_rootViewController];
                 
             } @catch (NSException *e) {
-                [self sendErrorEvent:WTFCSilentLogin withMessage:[e description]];
-                
+                [self sendLoginCallback:@"Error occured"];
+                NSLog(@"Error: %@", [e description]);
+                [self sendErrorEvent:kEventTypeSilentLogin withMessage:[e description]];
             }
         });
     });
@@ -114,8 +165,9 @@ RCT_EXPORT_METHOD(silentLogin:(NSString *) identifier userInfo:(NSDictionary *) 
 }
 
 
-RCT_EXPORT_METHOD(login) {
+RCT_EXPORT_METHOD(login:(RCTResponseSenderBlock)callback) {
 
+    self.loginSenderBlock = callback;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -126,12 +178,14 @@ RCT_EXPORT_METHOD(login) {
             
             @try {
                 
-                [WTLoginManager sharedInstance].delegate = self;
+                
                 [[WTLoginManager sharedInstance] loginFromVC:_rootViewController];
                 
                 
             } @catch (NSException *e) {
-                [self sendErrorEvent:WTFCLogin withMessage:[e description]];
+                [self sendLoginCallback:@"Error occured"];
+                NSLog(@"Error: %@", [e description]);
+                [self sendErrorEvent:kEventTypeLogin withMessage:[e description]];
                 
             }
         });
@@ -139,31 +193,10 @@ RCT_EXPORT_METHOD(login) {
     
 
 }
-#pragma mark - Delegate Methods
 
-- (void) wtAccountDidLoginSuccessfully {
-
-    [self sendLoginStatus:YES];
-}
-
-- (void) wtAccountDidLogOutSuccessfully {
-
-    [self sendLoginStatus:NO];
-}
-
-#pragma mark -
-
-- (void) wtsdkOrgProfileDidLoadFailWithError:(NSString *)error {
+RCT_EXPORT_METHOD(loadOrganizationProfile:(BOOL) autoOpenChat callback:(RCTResponseSenderBlock)callback) {
     
-}
-
-- (void) wtsdkOrgProfileDidLoadSuccesfully {
-    
-}
-
-#pragma mark -
-
-RCT_EXPORT_METHOD(loadOrganizationProfile:(BOOL) autoOpenChat) {
+    self.orgProfileSenderBlock = callback;
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -180,9 +213,12 @@ RCT_EXPORT_METHOD(loadOrganizationProfile:(BOOL) autoOpenChat) {
                 }];
                 
             } @catch (NSException *e) {
-                [self sendErrorEvent:WTFCLoadOrganizationProfile withMessage:[e description]];
-                
-                
+                if (self.orgProfileSenderBlock) {
+                    NSLog(@"Error: %@", [e description]);
+                    self.orgProfileSenderBlock(@[@(NO), @"Error occurred"]);
+                }
+                self.orgProfileSenderBlock = nil;
+                [self sendErrorEvent:kEventTypeOrgProfile withMessage:[e description]];
             }
         });
     });
@@ -190,8 +226,9 @@ RCT_EXPORT_METHOD(loadOrganizationProfile:(BOOL) autoOpenChat) {
     
 }
 
-RCT_EXPORT_METHOD(loadChatList) {
+RCT_EXPORT_METHOD(loadChatList:(RCTResponseSenderBlock)callback) {
     
+    self.chatListSenderBlock = callback;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
             
@@ -207,7 +244,12 @@ RCT_EXPORT_METHOD(loadChatList) {
                 }];
                 
             } @catch (NSException *e) {
-                [self sendErrorEvent:WTFCLoadChatList withMessage:[e description]];
+                if (self.chatListSenderBlock) {
+                    NSLog(@"Error: %@", [e description]);
+                    self.chatListSenderBlock(@[@(NO), @"Error occurred"]);
+                }
+                self.chatListSenderBlock = nil;
+                [self sendErrorEvent:kEventTypeChatList withMessage:[e description]];
                 
             }
         });
@@ -215,9 +257,8 @@ RCT_EXPORT_METHOD(loadChatList) {
     
 }
 
-
-RCT_EXPORT_METHOD(loadUsers) {
-    
+RCT_EXPORT_METHOD(loadUsers:(RCTResponseSenderBlock)callback) {
+    self.userListSenderBlock = callback;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         dispatch_async(dispatch_get_main_queue(), ^{
             
@@ -234,33 +275,17 @@ RCT_EXPORT_METHOD(loadUsers) {
                 
                 
             } @catch (NSException *e) {
-                
-                [self sendErrorEvent:WTFCLoadUsers withMessage:[e description]];
+                if (self.userListSenderBlock) {
+                    NSLog(@"Error: %@", [e description]);
+                    self.userListSenderBlock(@[@(NO), @"Error occurred"]);
+                }
+                self.userListSenderBlock = nil;
+                [self sendErrorEvent:kEventTypeUsers withMessage:[e description]];
                 
             }
         });
     });
     
-}
-
-- (void) sendErrorEvent:(NSInteger) errorCode withMessage:(NSString *) errorMessage {
-    if (_hasListeners) {
-        [self sendEventWithName:@"error-event" body:@{ @"code": @(errorCode), @"message": errorMessage }];
-    }
-}
-
-- (void) sendLoginStatus:(BOOL) loggedIn {
-    if (_hasListeners) {
-        
-        NSString *message;
-        if (loggedIn) {
-            message = @"User Logged In";
-        }
-        else {
-            message = @"User Logged Out";
-        }
-        [self sendEventWithName:@"login-event" body:@{ @"userLoggedIn": @(loggedIn), @"message": message }];
-    }
 }
 
 #pragma mark -
@@ -342,6 +367,268 @@ RCT_EXPORT_METHOD(AllowModifyChatProfile:(BOOL) allow)       // default = YES
 RCT_EXPORT_METHOD(SetInactiveChatTimeoutInterval:(double) timeoutInterval)   // default = 1800 seconds (30 minutes).
 {
     [WTSDKManager SetInactiveChatTimeoutInterval:timeoutInterval];
+}
+
+#pragma mark -
+
+RCT_EXPORT_METHOD(updateUserImage:(NSString *) localImagePath callback:(RCTResponseSenderBlock) callback)
+{
+    [[WTLoginManager sharedInstance] uploadUserImageAtPath:localImagePath onCompletion:^(BOOL success, NSString *error) {
+        if (success) {
+            callback(@[@(YES), [NSNull null]]);
+        }
+        else {
+            if (error) {
+                callback(@[@(NO), error]);
+            }
+            else {
+                callback(@[@(NO), @"Error Occured"]);
+            }
+        }
+        
+    }];
+}
+
+RCT_EXPORT_METHOD(updateUserName:(NSString *) userName callback:(RCTResponseSenderBlock) callback)
+{
+    [[WTLoginManager sharedInstance] updateUserProfileName:userName onCompletion:^(BOOL success, NSString *error) {
+        if (success) {
+            callback(@[@(YES), [NSNull null]]);
+        }
+        else {
+            if (error) {
+                callback(@[@(NO), error]);
+            }
+            else {
+                callback(@[@(NO), @"Error Occured"]);
+            }
+        }
+        
+    }];
+}
+
+
+#pragma mark -
+- (void) sendErrorEvent:(NSInteger) eventType withMessage:(NSString *) errorMessage {
+    if (_hasListeners) {
+//        [self sendWannatalkEvent:eventType error:errorMessage];
+        [self sendEventWithName:EVENT_ERROR body:@{ @"code": @(eventType), @"message": errorMessage }];
+    }
+}
+
+- (void) sendLoginStatus:(BOOL) loggedIn {
+    if (_hasListeners) {
+        
+        NSString *message;
+        if (loggedIn) {
+            message = @"User Logged In";
+        }
+        else {
+            message = @"User Logged Out";
+        }
+        [self sendEventWithName:EVENT_LOGIN body:@{ @"userLoggedIn": @(loggedIn), @"message": message }];
+    }
+}
+
+- (void) sendLoginEvent:(NSString *) error {
+    if (_hasListeners) {
+        
+        if (error) {
+            [self sendEventWithName:EVENT_LOGIN body:@{ @"userLoggedIn": @(NO), @"error": error }];
+        }
+        else {
+            [self sendEventWithName:EVENT_LOGIN body:@{ @"userLoggedIn": @(YES)}];
+        }
+    }
+}
+
+//- (void) sendWannatalkEvent:(NSInteger) eventType error:(NSString *) error {
+//    if (_hasListeners) {
+//        NSMutableDictionary *body = [NSMutableDictionary new];
+//        body[@"eventType"] = @(eventType);
+//        body[@"success"] = @(error == nil);
+//        body[@"error"] = error;
+//
+//        //[self sendEventWithName:EVENT_WANNATALK body:body];
+//    }
+//}
+
+//
+//- (void) sendCallbackV2:(RCTResponseSenderBlock)callback error:(NSString *) error {
+//    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+//        if (callback) {
+//            if (error == nil) {
+//                callback(@[@(YES), [NSNull null]]);
+//            }
+//            else {
+//                callback(@[@(NO), error]);
+//            }
+//
+//        }
+//        callback = nil;
+//    });
+//}
+
+
+- (void) sendLogoutCallback:(NSString *) error {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+
+           if (self.logoutSenderBlock) {
+               if (error == nil) {
+                   self.logoutSenderBlock(@[@(YES), [NSNull null]]);
+               }
+               else {
+                   self.logoutSenderBlock(@[@(NO), error]);
+               }
+               
+           }
+           self.logoutSenderBlock = nil;
+        
+    });
+    
+}
+
+- (void) sendLoginCallback:(NSString *) error {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        if (self.loginSenderBlock) {
+            if (error == nil) {
+                self.loginSenderBlock(@[@(YES), [NSNull null]]);
+            }
+            else {
+                self.loginSenderBlock(@[@(NO), error]);
+            }
+            
+        }
+        self.loginSenderBlock = nil;
+        
+    });
+}
+
+
+#pragma mark - WTSDKManager Delegate Methods
++ (UIViewController *) GetWindowRootViewController {
+    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+    UIViewController *_rootViewController = (UIViewController *)window.rootViewController;
+    return _rootViewController;
+}
+
+- (UINavigationController *) prepareViewHierachiesToLoadChatRoom:(BOOL) aiTopic {
+    // Get view controller on which to present the flow
+//    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+//    UINavigationController *_rootViewController = (UINavigationController *)window.rootViewController;
+    
+    UINavigationController *_rootViewController = (UINavigationController *) [WannatalkCore GetWindowRootViewController];
+    return _rootViewController;
+//    if ([_rootViewController isKindOfClass:[UINavigationController class]]) {
+//        return _rootViewController;
+//    }
+//    return nil;
+}
+
+#pragma mark - WTLoginManager Delegate Methods
+
+// This method will be invoked when user sign in successfully
+- (void) wtAccountDidLoginSuccessfully {
+    [self sendLoginStatus:YES];
+    [self sendLoginCallback:nil];
+//    [self sendWannatalkEvent:kEventTypeLogin error:nil];
+}
+// This method will be invoked when user sign out successfully
+- (void) wtAccountDidLogOutSuccessfully {
+    [self sendLoginStatus:NO];
+//    [self sendWannatalkEvent:kEventTypeLogout error:nil];
+    [self sendLogoutCallback:nil];
+}
+
+// If implemented, this method will be invoked when login fails
+- (void) wtAccountDidLoginFailWithError:(NSString *) error {
+//    [self sendWannatalkEvent:kEventTypeLogin error:error];
+    [self sendLoginCallback:error];
+}
+// If implemented, this method will be invoked when logout fails
+- (void) wtAccountDidLogOutFailedWithError:(NSString *) error {
+//    [self sendWannatalkEvent:kEventTypeLogout error:error];
+    [self sendLogoutCallback:error];
+}
+
+#pragma mark - WTSDKManager Delegate Methods
+
+// If implemented, this method will be invoked when organization profile loads successfully
+- (void) wtsdkOrgProfileDidLoadSuccesfully {
+//    [self sendWannatalkEvent:kEventTypeOrgProfile error:nil];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.orgProfileSenderBlock) {
+            self.orgProfileSenderBlock(@[@(YES), [NSNull null]]);
+        }
+        self.orgProfileSenderBlock = nil;
+    });
+
+}
+
+
+// If implemented, this method will be invoked when organization profile fails to load
+- (void) wtsdkOrgProfileDidLoadFailWithError:(NSString *) error {
+//    [self sendWannatalkEvent:kEventTypeOrgProfile error:error];
+    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.orgProfileSenderBlock) {
+            self.orgProfileSenderBlock(@[@(NO), error]);
+        }
+        self.orgProfileSenderBlock = nil;
+        
+    });
+
+}
+
+// If implemented, this method will be invoked when chat list page loads successfully
+- (void) wtsdkChatListDidLoadSuccesfully {
+//    [self sendWannatalkEvent:kEventTypeChatList error:nil];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.chatListSenderBlock) {
+            self.chatListSenderBlock(@[@(YES), [NSNull null]]);
+        }
+        self.chatListSenderBlock = nil;
+    });
+}
+
+// If implemented, this method will be invoked when chat list page fails to load
+- (void) wtsdkChatListDidLoadFailWithError:(NSString *) error {
+//    [self sendWannatalkEvent:kEventTypeChatList error:error];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.chatListSenderBlock) {
+            self.chatListSenderBlock(@[@(NO), error]);
+        }
+        self.chatListSenderBlock = nil;
+    });
+}
+
+// If implemented, this method will be invoked when user list page loads successfully
+- (void) wtsdkUsersDidLoadSuccesfully {
+//    [self sendWannatalkEvent:kEventTypeUsers error:nil];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.userListSenderBlock) {
+            self.userListSenderBlock(@[@(YES), [NSNull null]]);
+        }
+        self.userListSenderBlock = nil;
+    });
+}
+
+// If implemented, this method will be invoked when user list page fails to load
+- (void) wtsdkUsersDidLoadFailWithError:(NSString *) error {
+//    [self sendWannatalkEvent:kEventTypeUsers error:error];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        
+        if (self.userListSenderBlock) {
+            self.userListSenderBlock(@[@(YES)]);
+        }
+        self.userListSenderBlock = nil;
+    });
 }
 
 @end
