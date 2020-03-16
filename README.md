@@ -25,8 +25,13 @@
    <key>NSMicrophoneUsageDescription</key>
    <string>To record live photos and movies</string>
    ```
-3. `$ cd ios && pod install && cd ..`
-4. `$ react-native run-ios`
+3. Add this line to your pod file
+
+    `pod 'WTExternalSDK', :git =>'https://github.com/edzehoo/WannatalkAPI-iOS.git', :tag => '1.5.1'`
+
+4. `$ cd ios && pod install && cd ..`
+
+5. `$ react-native run-ios`
 
 ## To strip simulator architecture framework for your app submission
 1. Copy **trim.sh** file into your project folder.
