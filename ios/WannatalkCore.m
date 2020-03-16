@@ -3,8 +3,6 @@
 #import <React/RCTLog.h>
 #import <React/RCTConvert.h>
 
-#import "WannatalkSDKManger.h"
-
 @interface WannatalkCore() <WTLoginManagerDelegate, WTSDKManagerDelegate> {
     BOOL _hasListeners;
 }
