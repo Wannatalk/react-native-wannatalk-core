@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>WTAPIKey</key>
+	<string>&lt;your_api_key&gt;</string>
+	<key>WTAPIUsername</key>
+	<string>&lt;your_api_username&gt;</string>
+	<key>WTOrgHash</key>
+	<string>&lt;your_org_hash&gt;</string>
+</dict>
+</plist>

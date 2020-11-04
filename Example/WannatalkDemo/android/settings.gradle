@@ -1,0 +1,5 @@
+rootProject.name = 'WannatalkDemo'
+include ':react-native-wannatalk-core'
+project(':react-native-wannatalk-core').projectDir = new File(rootProject.projectDir, '../node_modules/react-native-wannatalk-core/android')
+apply from: file("../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesSettingsGradle(settings)
+include ':app'
