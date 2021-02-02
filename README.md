@@ -43,7 +43,21 @@
 ## Android Setup
 1. Request **wannatalk-services.json** from [wannatalk.ai](https://wannatalk.ai) and drag it into your application `assets` directory
 <img src="Screenshots/Screenshot2.png" width="350">
-2. Enable `multiDexEnabled` in your application **build.gradle**
+
+2. Set `compileOptions` in your application **build.gradle**
+
+```
+android {
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    ...
+}
+```
+
+3. Enable `multiDexEnabled` in your application **build.gradle**
    
    ```
    android {
@@ -54,8 +68,8 @@
        ...
    }
    ```
-3. Set colorPrimary, colorPrimaryDark and colorAccent attributes in app's color.xml (src/main/res/values/colors.xml)
-4. `$ react-native run-android`
+4. Set colorPrimary, colorPrimaryDark and colorAccent attributes in app's color.xml (src/main/res/values/colors.xml)
+5. `$ react-native run-android`
 
 
 # Usage
